@@ -3,6 +3,8 @@ from apiclient.http import MediaIoBaseDownload
 from django.shortcuts import redirect, render
 from django.http import HttpResponse, JsonResponse
 from oauth2client import client
+from operator import itemgetter
+from journal import service
 
 import httplib2
 import io
@@ -13,6 +15,7 @@ import requests
 # Keep following https://developers.google.com/api-client-library/python/guide/aaa_oauth
 # and https://developers.google.com/picasa-web/docs/2.0/developers_guide_protocol
 # django google api ref: https://developers.google.com/api-client-library/python/guide/django
+# Search google drive files: https://developers.google.com/drive/v3/web/search-parameters
 def index(request):
     if 'creds7' not in request.session:
 
@@ -36,24 +39,27 @@ def index(request):
 	print(999)
 	# files = drive_service.files().list(q='name="journals"').execute()
 
-
-	results = drive_service.files().list(q="'root' in parents and mimeType = 'application/vnd.google-apps.folder' and name = 'journals'").execute()
-	pp.pprint(results)
-
-	folder_id = results['files'][0]['id']
-
-	query = "'%s' in parents and name = 'gen_00' and mimeType='application/vnd.google-apps.folder'" % folder_id
-	results = drive_service.files().list(q=query).execute()
-	pp.pprint(results)
+	path = '/journals/gen_00/bryce_eryn_caine/blog/_posts'
+	folder_id = service.get_folder(credentials, path)
 
 	# ---------------------------------------------------------------------
 	# Get children of folder
 	# children = drive_service.children().list(folderId=folder_id).execute()
-	# pp.pprint(children)
+	children = drive_service.files().list(q="'%s' in parents and mimeType contains 'text/' and trashed = false" % folder_id).execute()
+
+        # file_list = sorted(children.get('files', []), reverse=True)
+	file_list = sorted(children.get('files', []), key=itemgetter('name'), reverse=True)
+
+        for file in file_list:
+            # Process change
+            print 'Found file: %s (%s)' % (file.get('name'), file.get('id'))
+
+	print('children')
+	pp.pprint(children)
 
 	# ---------------------------------------------------------------------
 	# Get file id
-        file_id = '0B8I9wVZNPA_ZUzVORnd4RHJmdzA'
+	file_id = file_list[0].get('id')
 
 	# ---------------------------------------------------------------------
 	# Get contents of file
