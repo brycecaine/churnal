@@ -1,77 +1,47 @@
-from apiclient import discovery
-from apiclient.http import MediaIoBaseDownload
+from datetime import datetime
+from dateutil.parser import parse
 from django.shortcuts import redirect, render
-from django.http import HttpResponse, JsonResponse
-from oauth2client import client
-from operator import itemgetter
-from journal import service
+from journal import google_drive_utils, service
 
 import httplib2
-import io
-import json
-import pprint
-import requests
 
-# Keep following https://developers.google.com/api-client-library/python/guide/aaa_oauth
-# and https://developers.google.com/picasa-web/docs/2.0/developers_guide_protocol
-# django google api ref: https://developers.google.com/api-client-library/python/guide/django
-# Search google drive files: https://developers.google.com/drive/v3/web/search-parameters
+
+
 def index(request):
-    if 'creds7' not in request.session:
 
-        return redirect('/oauth2callback')
+    return render(request, 'index.html', locals())
 
-    credentials = client.OAuth2Credentials.from_json(request.session['creds7'])
 
-    if credentials.access_token_expired:
+def setpath(request):
 
-        return redirect('/oauth2callback')
+    return render(request, 'set_path.html', locals())
+
+
+def timeline(request):
+    date_list = service.get_date_list(datetime.today(), 5)
+
+    return render(request, 'timeline.html', locals())
+
+
+def day(request, day=None):
+    creds = request.session.get('creds7')
+    drive_service = google_drive_utils.get_drive_service(creds)
+    
+    if drive_service:
+        entry_date = parse(day)
+        gd_path = '/journals/gen_00/bryce_eryn_caine/blog/_posts'
+        gp_path = '/Google Photos/2016'
+
+        gd_folder_id = google_drive_utils.get_folder(drive_service, gd_path)
+        gd_file_list = google_drive_utils.get_children(drive_service, gd_folder_id, 'text', entry_date)
+        g_entries = google_drive_utils.get_entries(drive_service, gd_file_list)
+
+        gp_folder_id = google_drive_utils.get_folder(drive_service, gp_path)
+        gp_file_list = google_drive_utils.get_children(drive_service, gp_folder_id, 'image', entry_date)
+        # Find a better way. probably picasa api directly
+        # g_photos = google_drive_utils.get_photos(drive_service, gp_file_list)
+
+        return render(request, 'day.html', locals())
 
     else:
-	# ---------------------------------------------------------------------
-        # Setup
-        http_auth = credentials.authorize(httplib2.Http())
-        drive_service = discovery.build('drive', 'v3', http_auth)
-	pp = pprint.PrettyPrinter(indent=4)
-
-	# ---------------------------------------------------------------------
-	# Get folder
-	print(999)
-	# files = drive_service.files().list(q='name="journals"').execute()
-
-	path = '/journals/gen_00/bryce_eryn_caine/blog/_posts'
-	folder_id = service.get_folder(credentials, path)
-
-	# ---------------------------------------------------------------------
-	# Get children of folder
-	# children = drive_service.children().list(folderId=folder_id).execute()
-	children = drive_service.files().list(q="'%s' in parents and mimeType contains 'text/' and trashed = false" % folder_id).execute()
-
-        # file_list = sorted(children.get('files', []), reverse=True)
-	file_list = sorted(children.get('files', []), key=itemgetter('name'), reverse=True)
-
-        for file in file_list:
-            # Process change
-            print 'Found file: %s (%s)' % (file.get('name'), file.get('id'))
-
-	print('children')
-	pp.pprint(children)
-
-	# ---------------------------------------------------------------------
-	# Get file id
-	file_id = file_list[0].get('id')
-
-	# ---------------------------------------------------------------------
-	# Get contents of file
-        req = drive_service.files().get_media(fileId=file_id)
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, req)
-        done = False
-
-        while done is False:
-            status, done = downloader.next_chunk()
-            print "Download %d%%." % int(status.progress() * 100)
-
-        entry = fh.getvalue()
-
-        return render(request, 'index.html', locals())
+        return redirect('/oauth2callback')

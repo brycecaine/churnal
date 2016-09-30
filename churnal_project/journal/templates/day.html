@@ -1,0 +1,11 @@
+{% load journal_extras %}
+
+<html>
+	<div class="md-content">
+        {% for entry in g_entries %}
+            {{ entry.metadata.date }}<br />
+            {{ entry.metadata.title }}<br />
+            {{ entry.content|markdownify|safe }}
+        {% endfor %}
+	</div>
+</html>
