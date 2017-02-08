@@ -1,11 +1,20 @@
 {% load journal_extras %}
 
 <html>
+    {{ creds }}
+    <br />
+    ---------------
+    <br />
 	<div class="md-content">
         {% for entry in g_entries %}
             {{ entry.metadata.date }}<br />
             {{ entry.metadata.title }}<br />
             {{ entry.content|markdownify|safe }}
+        {% endfor %}
+	</div>
+	<div>
+        {% for photo in g_photos %}
+            {{ photo }}
         {% endfor %}
 	</div>
 </html>
